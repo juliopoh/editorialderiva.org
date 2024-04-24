@@ -9,18 +9,20 @@ export default function Footer() {
   return (
     <footer sx={{ position: "relative", variant: "layout.footer" }}>
       <Container sx={{ display: "flex", flexDirection: "column" }}>
-        <StaticImage src="../images/icons/deriva-circle.svg" width={40} quality={100} formats={["AUTO", "WEBP", "AVIF"]} alt={"Editorial Deriva"} sx={{ mx: "auto", zIndex: 10 }} />
+         <Link to="/" sx={{ textAlign: "center" }}>
+          <StaticImage src="../images/icons/deriva-circle.svg" width={40} quality={100} formats={["AUTO", "WEBP", "AVIF"]} alt={"Editorial Deriva"} sx={{ mx: "auto", zIndex: 10 }}  />
+        </Link>
         <Themed.p sx={{ textAlign: "center", fontSize: 0, color: "background" }}>
-          © {new Date().getFullYear()}{" "}
-          <Link to="/" sx={t => ({ ...t.styles.a, color: "background" })}>
+           <Link to="/" sx={t => ({ ...t.styles.a, color: "background" })}>
             Editorial Deriva
-          </Link>
+          </Link>  © 2019 - {new Date().getFullYear()}{" "}
+        
           <br />
           Calle Los Artesanos Nro. 195
           <br />
           Villa Alegre, Región del Maule
           <br />
-          📧 contacto@editorialderiva.org  📞+56 9 353 666 87
+          📧 contacto@editorialderiva.org  📞+56 9 6215 2893
         </Themed.p>
         <SocialIcons />      
         <Themed.h6 sx={{ textAlign: "center", color: "background", mt: "5" }}>
