@@ -57,7 +57,7 @@ const Hero = ({ site }) => {
                 color: "primary",
               }}
             >
-              de {site.siteMetadata.location} con 🖤
+              desde {site.siteMetadata.location} con 🖤
             </Themed.h5>
             <Button
               sx={{
