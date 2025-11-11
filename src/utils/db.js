@@ -1,16 +1,25 @@
 const faunadb = require("faunadb")
 const q = faunadb.query
 
-// Fail fast with a clear error if the Fauna admin key is not provided
-if (!process.env.FAUNA_ADMIN_KEY) {
-  const msg = "Missing FAUNA_ADMIN_KEY environment variable. Set FAUNA_ADMIN_KEY to a valid FaunaDB admin key."
-  console.error(msg)
-  throw new Error(msg)
+// Don't throw at module-load time in production hosts. Instead, create the
+// client only when a key is present and fail with a clear error when DB
+// helpers are actually called without credentials.
+const HAS_FAUNA = Boolean(process.env.FAUNA_ADMIN_KEY)
+let serverClient = null
+if (HAS_FAUNA) {
+  serverClient = new faunadb.Client({ secret: process.env.FAUNA_ADMIN_KEY })
+} else {
+  console.warn(
+    "FAUNA_ADMIN_KEY not present. DB calls will throw a clear error when invoked."
+  )
 }
 
-const serverClient = new faunadb.Client({ secret: process.env.FAUNA_ADMIN_KEY })
-
 async function storePayment(data) {
+  if (!HAS_FAUNA || !serverClient) {
+    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot store payment."
+    console.error(msg)
+    throw new Error(msg)
+  }
   try {
     const success = await serverClient.query(q.Create(q.Collection("payments"), { data }))
     return success
@@ -22,6 +31,11 @@ async function storePayment(data) {
 }
 
 async function retrievePayment(token) {
+  if (!HAS_FAUNA || !serverClient) {
+    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot retrieve payment."
+    console.error(msg)
+    throw new Error(msg)
+  }
   try {
     const success = await serverClient.query(q.Get(q.Match(q.Index("payment_by_token"), token)))
     return success
@@ -32,6 +46,11 @@ async function retrievePayment(token) {
 }
 
 async function updatePayment(id, data) {
+  if (!HAS_FAUNA || !serverClient) {
+    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot update payment."
+    console.error(msg)
+    throw new Error(msg)
+  }
   try {
     const success = await serverClient.query(q.Update(q.Ref(q.Collection("payments"), id), { data }))
     return success

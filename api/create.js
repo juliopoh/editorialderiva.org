@@ -1,6 +1,5 @@
 const contentful = require("contentful")
 const { WebpayPlus } = require("transbank-sdk")
-const { storePayment, updatePayment } = require("../src/utils/db")
 
 if (process.env.WPP_CC && process.env.WPP_KEY) {
   WebpayPlus.configureForProduction(process.env.WPP_CC, process.env.WPP_KEY)
@@ -37,6 +36,14 @@ function sumTotal(cart) {
 module.exports = async (req, res) => {
   console.log('api/create handler invoked', req && req.method)
   console.log('request body preview:', req && req.body && JSON.stringify(req.body).slice(0, 100))
+  // fail early and return a clear JSON error if the Fauna key is missing in production
+  if (!process.env.FAUNA_ADMIN_KEY) {
+    console.error('Missing FAUNA_ADMIN_KEY - returning explicit error')
+    res.status(500)
+    return res.json({ error: 'Missing FAUNA_ADMIN_KEY environment variable' })
+  }
+  // require DB helpers lazily so module load doesn't throw in production hosts
+  const { storePayment, updatePayment } = require("../src/utils/db")
   try {
     // basic guard: ensure req.body exists
     if (!req || !req.body) {
