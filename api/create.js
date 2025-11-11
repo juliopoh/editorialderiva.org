@@ -66,21 +66,48 @@ module.exports = async (req, res) => {
     }
     const { name, address, email } = req.body
     const cart = await validateCart(req.body.cart)
-    const payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
+
+    // store payment in Fauna — surface Fauna errors directly
+    let payment
+    try {
+      payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
+    } catch (err) {
+      console.error('storePayment error:', err)
+      res.status(500)
+      return res.json({ errorType: 'fauna', message: err && err.message ? err.message : String(err) })
+    }
     if (!payment) {
       console.error('storePayment returned falsy value')
-      throw new Error('Failed to store payment')
+      res.status(500)
+      return res.json({ errorType: 'fauna', message: 'storePayment returned no result' })
     }
     const buyOrder = payment.ref.value.id
     const sessionId = payment.ref.value.id
     const amount = sumTotal(cart)
     const returnUrl = `${process.env.BASE_URL}/api/commit`
 
-    const { url, token } = await new WebpayPlus.Transaction().create(buyOrder, sessionId, amount, returnUrl)
+    // create transaction with Webpay — surface errors explicitly
+    let url, token
+    try {
+      const tx = await new WebpayPlus.Transaction().create(buyOrder, sessionId, amount, returnUrl)
+      url = tx.url
+      token = tx.token
+    } catch (err) {
+      console.error('Webpay create error:', err)
+      res.status(502)
+      return res.json({ errorType: 'webpay', message: err && err.message ? err.message : String(err) })
+    }
 
-    await updatePayment(buyOrder, { token, amount })
+    // update payment with token and amount
+    try {
+      await updatePayment(buyOrder, { token, amount })
+    } catch (err) {
+      console.error('updatePayment error:', err)
+      res.status(500)
+      return res.json({ errorType: 'fauna_update', message: err && err.message ? err.message : String(err) })
+    }
 
-    res.json({ redirect: url + "?token_ws=" + token })
+    return res.json({ redirect: url + "?token_ws=" + token })
   } catch (err) {
     res.status(500)
     res.json({ error: err.toString() })
