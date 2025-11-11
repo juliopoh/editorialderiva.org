@@ -73,8 +73,10 @@ module.exports = async (req, res) => {
       payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
     } catch (err) {
       console.error('storePayment error:', err)
+      const resp = { errorType: 'fauna', message: err && err.message ? err.message : String(err) }
+      if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
       res.status(500)
-      return res.json({ errorType: 'fauna', message: err && err.message ? err.message : String(err) })
+      return res.json(resp)
     }
     if (!payment) {
       console.error('storePayment returned falsy value')
@@ -94,8 +96,10 @@ module.exports = async (req, res) => {
       token = tx.token
     } catch (err) {
       console.error('Webpay create error:', err)
+      const resp = { errorType: 'webpay', message: err && err.message ? err.message : String(err) }
+      if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
       res.status(502)
-      return res.json({ errorType: 'webpay', message: err && err.message ? err.message : String(err) })
+      return res.json(resp)
     }
 
     // update payment with token and amount
@@ -103,8 +107,10 @@ module.exports = async (req, res) => {
       await updatePayment(buyOrder, { token, amount })
     } catch (err) {
       console.error('updatePayment error:', err)
+      const resp = { errorType: 'fauna_update', message: err && err.message ? err.message : String(err) }
+      if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
       res.status(500)
-      return res.json({ errorType: 'fauna_update', message: err && err.message ? err.message : String(err) })
+      return res.json(resp)
     }
 
     return res.json({ redirect: url + "?token_ws=" + token })
