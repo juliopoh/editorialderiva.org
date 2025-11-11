@@ -17,6 +17,7 @@ export default function CheckoutForm() {
 
   const handleSubmit = async event => {
     event.preventDefault()
+    console.log("Submitting order", { cart, ...state })
     try {
       let response = await fetch("./api/create", {
         method: "POST",
