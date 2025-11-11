@@ -25,6 +25,7 @@ export default function CheckoutForm() {
         body: JSON.stringify({ cart, ...state }),
       })
       let { redirect } = await response.json()
+      console.log(redirect)
       if (redirect) {
         window.location.assign(redirect)
       }
