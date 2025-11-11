@@ -18,7 +18,7 @@ export default function CheckoutForm() {
   const handleSubmit = async event => {
     event.preventDefault()
     try {
-      let response = await fetch("/api/create", {
+      let response = await fetch("./api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart, ...state }),
@@ -47,7 +47,7 @@ export default function CheckoutForm() {
       <Input type="text" name="address" id="address" required />
       <Label htmlFor="email">Correo electrónico</Label>
       <Input type="email" name="email" id="email" required />
-      <Button>Proceder con el pago</Button>
+      <Button onClick={handleSubmit}>Proceder con el pago</Button>
     </Box>
   )
 }
