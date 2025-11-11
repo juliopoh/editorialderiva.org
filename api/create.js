@@ -8,25 +8,38 @@ if (process.env.WPP_CC && process.env.WPP_KEY) {
 }
 
 async function validateCart(cart) {
-  console.log("Validating cart", cart)
-  /*
-  const contentfulClient = contentful.createClient({
-    space: process.env.CONTENTFUL_SPACE_ID,
-    accessToken: process.env.CONTENTFUL_ACCESS_TOKEN,
-  })
-  const contentful_ids = cart.map(item => item.contentful_id)
-  const { items: inventory } = await contentfulClient.getEntries({
-    content_type: "book",
-    "sys.id[in]": contentful_ids.join(","),
-  })
-  const validated = cart.map(item => {
-    const check = inventory.find(({ sys }) => sys.id === item.contentful_id)
-    item.price = check.fields.price
-    return item
-  })
-  return validated
-  */
-  return cart
+  if (!Array.isArray(cart) || cart.length === 0) return cart || []
+
+  if (!process.env.CONTENTFUL_SPACE_ID || !process.env.CONTENTFUL_ACCESS_TOKEN) {
+    console.warn(
+      "CONTENTFUL_SPACE_ID or CONTENTFUL_ACCESS_TOKEN missing — skipping price validation"
+    )
+    return cart
+  }
+
+  try {
+    const contentfulClient = contentful.createClient({
+      space: process.env.CONTENTFUL_SPACE_ID,
+      accessToken: process.env.CONTENTFUL_ACCESS_TOKEN,
+    })
+    const contentful_ids = cart.map(item => item.contentful_id)
+    const { items: inventory } = await contentfulClient.getEntries({
+      content_type: "book",
+      "sys.id[in]": contentful_ids.join(","),
+    })
+    const validated = cart.map(item => {
+      const check = inventory.find(({ sys }) => sys.id === item.contentful_id)
+      if (check && check.fields && typeof check.fields.price !== 'undefined') {
+        item.price = check.fields.price
+      }
+      return item
+    })
+    return validated
+  } catch (err) {
+    console.error('Contentful price validation failed:', err)
+    // return original cart so checkout can continue (server will still validate prices later if needed)
+    return cart
+  }
 }
 
 function sumTotal(cart) {
