@@ -10,6 +10,7 @@ if (process.env.WPP_CC && process.env.WPP_KEY) {
 
 async function validateCart(cart) {
   console.log("Validating cart", cart )
+  /*
   const contentfulClient = contentful.createClient({
     space: process.env.CONTENTFUL_SPACE_ID,
     accessToken: process.env.CONTENTFUL_ACCESS_TOKEN,
@@ -25,6 +26,8 @@ async function validateCart(cart) {
     return item
   })
   return validated
+  */
+  return cart
 }
 
 function sumTotal(cart) {
