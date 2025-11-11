@@ -19,7 +19,7 @@ export default function CheckoutForm() {
     event.preventDefault()
     console.log("Submitting order", { cart, ...state })
     try {
-      let response = await fetch("/api/create", {
+      let response = await fetch("../api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart, ...state }),
