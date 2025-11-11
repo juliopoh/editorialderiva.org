@@ -35,10 +35,22 @@ function sumTotal(cart) {
 }
 
 module.exports = async (req, res) => {
+  console.log('api/create handler invoked', req && req.method)
+  console.log('request body preview:', req && req.body && JSON.stringify(req.body).slice(0, 100))
   try {
+    // basic guard: ensure req.body exists
+    if (!req || !req.body) {
+      console.error('No req.body present')
+      res.status(400)
+      return res.json({ error: 'No request body' })
+    }
     const { name, address, email } = req.body
     const cart = await validateCart(req.body.cart)
     const payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
+    if (!payment) {
+      console.error('storePayment returned falsy value')
+      throw new Error('Failed to store payment')
+    }
     const buyOrder = payment.ref.value.id
     const sessionId = payment.ref.value.id
     const amount = sumTotal(cart)
