@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
       console.error('storePayment error:', err)
       const resp = { errorType: 'fauna', message: err && err.message ? err.message : String(err) }
       if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
-      res.status(500)
+      res.status(502)
       return res.json(resp)
     }
     if (!payment) {
