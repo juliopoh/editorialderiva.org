@@ -1,63 +1,99 @@
-const faunadb = require("faunadb")
-const q = faunadb.query
+const { createClient } = require("@supabase/supabase-js")
 
-// Don't throw at module-load time in production hosts. Instead, create the
-// client only when a key is present and fail with a clear error when DB
-// helpers are actually called without credentials.
-const HAS_FAUNA = Boolean(process.env.FAUNA_ADMIN_KEY)
-let serverClient = null
-if (HAS_FAUNA) {
-  serverClient = new faunadb.Client({ secret: process.env.FAUNA_ADMIN_KEY })
+const HAS_SUPABASE = Boolean(
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+let supabase = null
+if (HAS_SUPABASE) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
 } else {
   console.warn(
-    "FAUNA_ADMIN_KEY not present. DB calls will throw a clear error when invoked."
+    "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not present. DB calls will throw a clear error when invoked."
   )
 }
 
-async function storePayment(data) {
-  if (!HAS_FAUNA || !serverClient) {
-    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot store payment."
+function ensureSupabase() {
+  if (!HAS_SUPABASE || !supabase) {
+    const msg =
+      "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variable. Cannot access payments."
     console.error(msg)
     throw new Error(msg)
   }
-  try {
-    const success = await serverClient.query(q.Create(q.Collection("payments"), { data }))
-    return success
-  } catch (err) {
-    console.error(err)
-    // rethrow so callers don't continue with undefined results
-    throw err
+  return supabase
+}
+
+function normalizeId(id) {
+  if (typeof id === "string" && /^\d+$/.test(id)) {
+    return Number(id)
   }
+  return id
+}
+
+async function storePayment(data) {
+  const client = ensureSupabase()
+  const { data: row, error } = await client
+    .from("payments")
+    .insert([{ ...data }])
+    .select()
+    .single()
+  if (error) {
+    console.error(error)
+    throw error
+  }
+  return row
 }
 
 async function retrievePayment(token) {
-  if (!HAS_FAUNA || !serverClient) {
-    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot retrieve payment."
-    console.error(msg)
-    throw new Error(msg)
+  const client = ensureSupabase()
+  const { data: row, error } = await client
+    .from("payments")
+    .select("*")
+    .eq("token", token)
+    .single()
+  if (error) {
+    console.error(error)
+    throw error
   }
-  try {
-    const success = await serverClient.query(q.Get(q.Match(q.Index("payment_by_token"), token)))
-    return success
-  } catch (err) {
-    console.error(err)
-    throw err
-  }
+  return row
 }
 
-async function updatePayment(id, data) {
-  if (!HAS_FAUNA || !serverClient) {
-    const msg = "Missing FAUNA_ADMIN_KEY environment variable. Cannot update payment."
+async function updatePayment(identifier, data) {
+  const client = ensureSupabase()
+  const normalizedId = normalizeId(identifier)
+
+  if (typeof normalizedId === "number") {
+    const { data: rowById, error: errById } = await client
+      .from("payments")
+      .update({ ...data })
+      .eq("id", normalizedId)
+      .select()
+      .maybeSingle()
+    if (errById) {
+      console.error(errById)
+      throw errById
+    }
+    if (rowById) return rowById
+  }
+
+  const { data: rowByOrder, error: errByOrder } = await client
+    .from("payments")
+    .update({ ...data })
+    .eq("buy_order", String(identifier))
+    .select()
+    .maybeSingle()
+  if (errByOrder) {
+    console.error(errByOrder)
+    throw errByOrder
+  }
+  if (!rowByOrder) {
+    const msg = "Payment not found for update."
     console.error(msg)
     throw new Error(msg)
   }
-  try {
-    const success = await serverClient.query(q.Update(q.Ref(q.Collection("payments"), id), { data }))
-    return success
-  } catch (err) {
-    console.error(err)
-    throw err
-  }
+  return rowByOrder
 }
 
 module.exports = { storePayment, retrievePayment, updatePayment }

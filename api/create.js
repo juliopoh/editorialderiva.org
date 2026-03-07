@@ -49,11 +49,11 @@ function sumTotal(cart) {
 module.exports = async (req, res) => {
   console.log('api/create handler invoked', req && req.method)
   console.log('request body preview:', req && req.body && JSON.stringify(req.body).slice(0, 100))
-  // fail early and return a clear JSON error if the Fauna key is missing in production
-  if (!process.env.FAUNA_ADMIN_KEY) {
-    console.error('Missing FAUNA_ADMIN_KEY - returning explicit error')
+  // fail early and return a clear JSON error if Supabase credentials are missing
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Missing Supabase credentials - returning explicit error')
     res.status(500)
-    return res.json({ error: 'Missing FAUNA_ADMIN_KEY environment variable' })
+    return res.json({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variable' })
   }
   // require DB helpers lazily so module load doesn't throw in production hosts
   const { storePayment, updatePayment } = require("../src/utils/db")
@@ -67,13 +67,13 @@ module.exports = async (req, res) => {
     const { name, address, email } = req.body
     const cart = await validateCart(req.body.cart)
 
-    // store payment in Fauna — surface Fauna errors directly
+    // store payment in Supabase — surface errors directly
     let payment
     try {
       payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
     } catch (err) {
       console.error('storePayment error:', err)
-      const resp = { errorType: 'fauna', message: err && err.message ? err.message : String(err) }
+      const resp = { errorType: 'supabase', message: err && err.message ? err.message : String(err) }
       if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
       res.status(502)
       return res.json(resp)
@@ -81,10 +81,16 @@ module.exports = async (req, res) => {
     if (!payment) {
       console.error('storePayment returned falsy value')
       res.status(500)
-      return res.json({ errorType: 'fauna', message: 'storePayment returned no result' })
+      return res.json({ errorType: 'supabase', message: 'storePayment returned no result' })
     }
-    const buyOrder = payment.ref.value.id
-    const sessionId = payment.ref.value.id
+    const paymentId = payment.id || payment.payment_id
+    if (!paymentId) {
+      console.error('storePayment returned no id')
+      res.status(500)
+      return res.json({ errorType: 'supabase', message: 'storePayment returned no id' })
+    }
+    const buyOrder = String(paymentId)
+    const sessionId = String(paymentId)
     const amount = sumTotal(cart)
     const returnUrl = `${process.env.BASE_URL}/api/commit`
 
@@ -107,7 +113,7 @@ module.exports = async (req, res) => {
       await updatePayment(buyOrder, { token, amount })
     } catch (err) {
       console.error('updatePayment error:', err)
-      const resp = { errorType: 'fauna_update', message: err && err.message ? err.message : String(err) }
+      const resp = { errorType: 'supabase_update', message: err && err.message ? err.message : String(err) }
       if (process.env.DEBUG_API_ERRORS === 'true' && err && err.stack) resp.stack = err.stack
       res.status(500)
       return res.json(resp)
