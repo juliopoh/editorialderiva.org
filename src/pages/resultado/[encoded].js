@@ -10,7 +10,8 @@ const isBrowser = typeof window !== "undefined"
 
 export default function Resultado({ params }) {
   if (isBrowser) {
-    const data = JSON.parse(atob(params.encoded))
+    const encoded = decodeURIComponent(params.encoded)
+    const data = JSON.parse(atob(encoded))
     const authorized = data.response_code === 0 && data.status === "AUTHORIZED"
     return (
       <Layout>

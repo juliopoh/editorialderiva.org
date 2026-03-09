@@ -32,7 +32,9 @@ module.exports = async (req, res) => {
     if (commitResponse.response_code === 0 && commitResponse.status === "AUTHORIZED") {
       await notifySuccessfulPayment(payment)
     }
-    const encoded = Buffer.from(JSON.stringify(commitResponse)).toString("base64")
+    const encoded = encodeURIComponent(
+      Buffer.from(JSON.stringify(commitResponse)).toString("base64")
+    )
     res.status(301)
     res.setHeader("Location", `/resultado/${encoded}`)
     res.end()
