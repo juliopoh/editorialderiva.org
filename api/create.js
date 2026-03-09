@@ -46,6 +46,11 @@ function sumTotal(cart) {
   return cart.reduce((acc, { quantity, price }) => acc + quantity * price, 0)
 }
 
+function generateBuyOrder() {
+  const seed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+  return `do${seed}`.slice(0, 26)
+}
+
 module.exports = async (req, res) => {
   console.log('api/create handler invoked', req && req.method)
   console.log('request body preview:', req && req.body && JSON.stringify(req.body).slice(0, 100))
@@ -67,10 +72,13 @@ module.exports = async (req, res) => {
     const { name, address, email } = req.body
     const cart = await validateCart(req.body.cart)
 
+    const buyOrder = generateBuyOrder()
+    const sessionId = buyOrder
+
     // store payment in Supabase — surface errors directly
     let payment
     try {
-      payment = await storePayment({ cart, name, address, email, status: "INITIALIZED" })
+      payment = await storePayment({ cart, name, address, email, status: "INITIALIZED", buy_order: buyOrder })
     } catch (err) {
       console.error('storePayment error:', err)
       const resp = { errorType: 'supabase', message: err && err.message ? err.message : String(err) }
@@ -83,14 +91,6 @@ module.exports = async (req, res) => {
       res.status(500)
       return res.json({ errorType: 'supabase', message: 'storePayment returned no result' })
     }
-    const paymentId = payment.id || payment.payment_id
-    if (!paymentId) {
-      console.error('storePayment returned no id')
-      res.status(500)
-      return res.json({ errorType: 'supabase', message: 'storePayment returned no id' })
-    }
-    const buyOrder = String(paymentId)
-    const sessionId = String(paymentId)
     const amount = sumTotal(cart)
     const returnUrl = `${process.env.BASE_URL}/api/commit`
 
