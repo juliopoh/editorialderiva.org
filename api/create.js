@@ -43,7 +43,43 @@ async function validateCart(cart) {
 }
 
 function sumTotal(cart) {
-  return cart.reduce((acc, { quantity, price }) => acc + quantity * price, 0)
+  return cart.reduce((acc, { quantity, price }) => {
+    const qty = Number(quantity)
+    const unitPrice = Number(price)
+    return acc + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
+  }, 0)
+}
+
+function compactCartItem(item = {}) {
+  const quantity = Number(item.quantity)
+  const price = Number(item.price)
+  const id =
+    typeof item.contentful_id === "string" || typeof item.contentful_id === "number"
+      ? String(item.contentful_id)
+      : typeof item.id === "string" || typeof item.id === "number"
+      ? String(item.id)
+      : null
+  return {
+    contentful_id: id,
+    title:
+      typeof item.title === "string" && item.title.trim()
+        ? item.title.trim().slice(0, 180)
+        : "Libro",
+    authors: Array.isArray(item.authors)
+      ? item.authors
+          .filter(author => typeof author === "string")
+          .map(author => author.trim())
+          .filter(Boolean)
+          .slice(0, 3)
+      : [],
+    quantity: Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1,
+    price: Number.isFinite(price) ? price : 0,
+  }
+}
+
+function compactCart(cart) {
+  if (!Array.isArray(cart)) return []
+  return cart.map(item => compactCartItem(item)).filter(item => Boolean(item.contentful_id))
 }
 
 function generateBuyOrder() {
@@ -70,7 +106,14 @@ module.exports = async (req, res) => {
       return res.json({ error: 'No request body' })
     }
     const { name, address, email } = req.body
-    const cart = await validateCart(req.body.cart)
+    const compactedCart = compactCart(req.body.cart)
+    const validatedCart = await validateCart(compactedCart)
+    const cart = compactCart(validatedCart)
+
+    if (!cart.length) {
+      res.status(400)
+      return res.json({ errorType: "cart", message: "Cart is empty or invalid" })
+    }
 
     const buyOrder = generateBuyOrder()
     const sessionId = buyOrder
@@ -92,7 +135,8 @@ module.exports = async (req, res) => {
       return res.json({ errorType: 'supabase', message: 'storePayment returned no result' })
     }
     const amount = sumTotal(cart)
-    const returnUrl = `${process.env.BASE_URL}/api/commit`
+    const baseUrl = process.env.BASE_URL || "http://localhost:8000"
+    const returnUrl = `${baseUrl}/api/commit`
 
     // create transaction with Webpay — surface errors explicitly
     let url, token

@@ -8,6 +8,19 @@ export default function CheckoutForm() {
   const [state, setState] = useState({ name: "", address: "", email: "" })
   const [error, setError] = useState("")
 
+  const compactCart = currentCart =>
+    (Array.isArray(currentCart) ? currentCart : [])
+      .map(item => ({
+        contentful_id: item && (item.contentful_id || item.id),
+        title: typeof (item && item.title) === "string" ? item.title : "Libro",
+        authors: Array.isArray(item && item.authors)
+          ? item.authors.filter(author => typeof author === "string").slice(0, 3)
+          : [],
+        quantity: Number(item && item.quantity) > 0 ? Math.floor(Number(item.quantity)) : 1,
+        price: Number.isFinite(Number(item && item.price)) ? Number(item.price) : 0,
+      }))
+      .filter(item => Boolean(item.contentful_id))
+
   const handleChange = async event => {
     const value = event.target.value
     setState({
@@ -26,11 +39,12 @@ export default function CheckoutForm() {
     setError("")
     console.log("Submitting order", { cart, ...state })
     try {
+      const safeCart = compactCart(cart)
       // use an absolute path so requests always target the site's API root
       let response = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart, ...state }),
+        body: JSON.stringify({ cart: safeCart, ...state }),
       })
       let { redirect } = await response.json()
       console.log(redirect)
