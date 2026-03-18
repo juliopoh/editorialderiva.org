@@ -46,13 +46,25 @@ export default function CheckoutForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart: safeCart, ...state }),
       })
-      let { redirect } = await response.json()
+      const data = await response.json()
+      if (!response.ok) {
+        console.error("Checkout API error", data)
+        const message =
+          (data && (data.message || data.error || data.errorType)) ||
+          "No se pudo iniciar el pago. Inténtalo de nuevo."
+        setError(message)
+        return
+      }
+      let { redirect } = data
       console.log(redirect)
       if (redirect) {
         window.location.assign(redirect)
+      } else {
+        setError("No se recibió redirección de pago")
       }
     } catch (error) {
       console.error(error)
+      setError("Error de red al iniciar el pago")
     }
   }
   return (

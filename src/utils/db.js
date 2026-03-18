@@ -179,7 +179,11 @@ async function runWithRetry(operation, fn, attempts = 3) {
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await fn()
+      const result = await fn()
+      if (result && result.error && isRetriableFetchError(result.error)) {
+        throw result.error
+      }
+      return result
     } catch (error) {
       lastError = error
       const shouldRetry = isRetriableFetchError(error) && attempt < attempts
