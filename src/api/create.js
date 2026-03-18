@@ -135,6 +135,9 @@ module.exports = async (req, res) => {
         errorType: "supabase",
         message: err && err.message ? err.message : String(err),
       }
+      if (err && err.cause && err.cause.code) resp.code = err.cause.code
+      if (err && err.statusCode) resp.statusCode = err.statusCode
+      if (err && err.details) resp.details = err.details
       if (process.env.DEBUG_API_ERRORS === "true" && err && err.stack)
         resp.stack = err.stack
       res.status(502)
